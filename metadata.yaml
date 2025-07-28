@@ -1,0 +1,5 @@
+name: astrbot_plugin_update_manager
+desc: 一个用于一键更新所有astrbot插件的插件。
+version: v1.0.0
+author: bushikq
+repo: https://github.com/bushikq/astrbot_plugin_update_manager
