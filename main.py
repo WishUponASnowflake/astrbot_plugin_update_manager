@@ -1,4 +1,5 @@
 import traceback
+from pathlib import Path
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
@@ -11,7 +12,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 try:
     from astrbot.cli.commands.cmd_plug import (
         build_plug_list,  # 用于获取所有插件信息
-        _get_data_path,  # 用于获取数据目录，进而获得插件目录
         PluginStatus,
     )
 
@@ -20,7 +20,6 @@ except ImportError as e:
     logger.error(f"警告：无法导入 AstrBot 内部依赖模块：{e}")
     build_plug_list = None
     PluginStatus = None
-    _get_data_path = None
 
 
 @register(
@@ -75,16 +74,14 @@ class PluginUpdateManager(Star):
             [
                 build_plug_list,
                 PluginStatus,
-                _get_data_path,
             ]
         ):
             error_msg = "机器人内部依赖功能未加载，无法执行更新。"
             logger.error(f"错误：核心依赖模块未加载，{error_msg}")
             return error_msg
 
-        data_path = _get_data_path()  # 应为AstrBot\data
-        logger.info(f"data_path: {data_path}")
-        plug_path = data_path / "plugins"
+        plug_path = Path(__file__).resolve().parent.parent
+        logger.info(f"插件目录：{plug_path}")
         if not plug_path.is_dir():
             error_msg = f"未找到插件目录 {plug_path}，无法执行更新。"
             logger.error(f"错误：未找到插件目录 {plug_path}。")
