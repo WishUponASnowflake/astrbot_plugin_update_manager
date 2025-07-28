@@ -1,0 +1,14 @@
+{
+  "interval_hours": { 
+      "description": "检查更新间隔,填0则不启用定时检查", 
+      "type": "int",
+      "hint": "整数（小时）", 
+      "default": 24
+  },
+  "github_proxy": {
+      "description": "GitHub 加速地址",
+      "type": "string",
+      "hint": "参考设置中的网址，如 https://gh-proxy.com，不填则不使用",
+      "default":""
+  }
+}
