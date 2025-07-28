@@ -139,9 +139,8 @@ class PluginUpdateManager(Star):
             final_reply_to_user = "\n".join(update_summary_messages)
             if failed_plugins:
                 final_reply_to_user += f"\n\n注意：部分插件更新失败：{', '.join(failed_plugins)}。请检查机器人日志获取详细信息。"
-            else:
-                success_count = len(need_update_plugins) - len(failed_plugins)
-                final_reply_to_user += f"\n\n成功更新 {success_count} 个插件。"
+            success_count = len(need_update_plugins) - len(failed_plugins)
+            final_reply_to_user += f"\n\n成功更新 {success_count} 个插件。"
             return final_reply_to_user
 
         except Exception as e:
