@@ -89,6 +89,7 @@ class PluginUpdateManager(Star):
 
         update_summary_messages = []
         failed_plugins = []
+        successed_plugins = []
 
         try:
             all_plugins_info = build_plug_list(plug_path)
@@ -129,6 +130,7 @@ class PluginUpdateManager(Star):
                     )
                     # await self.context._star_manager.reload(specified_plugin_name=plugin_name_to_update)实测会自动重载插件，无需手动重新加载
                     logger.info(f"插件 {plugin_name_to_update} 更新并已自动重新加载。")
+                    successed_plugins.append(plugin_name_to_update)
 
                 except Exception as e:
                     error_msg = f"更新插件 {plugin_name_to_update} 失败: {str(e)}"
@@ -139,8 +141,9 @@ class PluginUpdateManager(Star):
             final_reply_to_user = "\n".join(update_summary_messages)
             if failed_plugins:
                 final_reply_to_user += f"\n\n注意：部分插件更新失败：{', '.join(failed_plugins)}。请检查机器人日志获取详细信息。"
-            success_count = len(need_update_plugins) - len(failed_plugins)
-            final_reply_to_user += f"\n\n成功更新 {success_count} 个插件。"
+            final_reply_to_user += (
+                f"\n成功更新 {len(successed_plugins)} 个插件。\n{successed_plugins}"
+            )
             return final_reply_to_user
 
         except Exception as e:
