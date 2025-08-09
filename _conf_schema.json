@@ -10,5 +10,12 @@
       "type": "string",
       "hint": "参考设置中的网址，如 https://gh-proxy.com，不填则不使用",
       "default":""
+  },
+  "test_mode": {
+      "description": "测试模式",
+      "type": "bool",
+      "hint": "true/false",
+      "default": false,
+      "invisible": true
   }
 }

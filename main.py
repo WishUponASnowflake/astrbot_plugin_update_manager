@@ -1,5 +1,6 @@
 import traceback
 from pathlib import Path
+from datetime import datetime  # 供调试模式实用
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
@@ -26,7 +27,7 @@ except ImportError as e:
     "astrbot_plugin_update_manager",
     "bushikq",
     "一个用于一键更新和管理所有AstrBot插件的工具，支持定时检查",
-    "1.0.1",
+    "1.0.2",
 )
 class PluginUpdateManager(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -35,6 +36,7 @@ class PluginUpdateManager(Star):
         self.interval_hours = self.config.get("interval_hours", 24)
         # self.proxy_address = self.context.get_config()["http_proxy"]代理地址
         self.proxy_address = self.config.get("github_proxy", None)
+        self.test_mode = self.config.get("test_mode", False)
 
         if self.proxy_address:
             logger.info(f"使用代理：{self.proxy_address}")
@@ -93,6 +95,12 @@ class PluginUpdateManager(Star):
 
         try:
             all_plugins_info = build_plug_list(plug_path)
+            if self.test_mode:  # 调试模式
+                with open(
+                    Path(__file__).resolve().parent / "test.md", "w", encoding="utf-8"
+                ) as f:
+                    f.write(f"于{datetime.now()}记录\n {all_plugins_info}")
+                    logger.info("调试模式：已生成测试文件 test.md。")
             need_update_plugins = [
                 p
                 for p in all_plugins_info
