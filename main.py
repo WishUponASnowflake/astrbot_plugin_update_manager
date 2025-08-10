@@ -1,6 +1,6 @@
 import traceback
 from pathlib import Path
-from datetime import datetime  # 供调试模式实用
+from datetime import datetime  # 供调试模式使用
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
