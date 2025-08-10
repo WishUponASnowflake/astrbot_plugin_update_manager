@@ -124,12 +124,7 @@ class PluginUpdateManager(Star):
             )
 
             # 遍历并逐个更新插件
-            for plugin_item in need_update_plugins:
-                plugin_name_to_update = plugin_item.get("name")
-                if not plugin_name_to_update:
-                    logger.warning(f"发现一个缺少 'name' 的插件信息: {plugin_item}")
-                    continue
-
+            for plugin_name_to_update in plugin_names_to_update:
                 try:
                     logger.info(f"正在更新插件：{plugin_name_to_update}...")
                     await self.context._star_manager.update_plugin(
