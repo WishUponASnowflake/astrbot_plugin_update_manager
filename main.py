@@ -17,7 +17,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
     "astrbot_plugin_update_manager",
     "bushikq",
     "一个用于一键更新和管理所有AstrBot插件的工具，支持定时检查",
-    "2.0.0",
+    "2.1.0",
 )
 class PluginUpdateManager(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -27,6 +27,8 @@ class PluginUpdateManager(Star):
         # self.proxy_address = self.context.get_config()["http_proxy"]代理地址
         self.proxy_address = self.config.get("github_proxy", None)
         self.test_mode = self.config.get("test_mode", False)
+        self.black_plugin_list = self.config.get("black_plugin_list", [])
+        self.white_plugin_list = self.config.get("white_plugin_list", [])
 
         if self.proxy_address:
             logger.info(f"使用代理：{self.proxy_address}")
@@ -116,8 +118,12 @@ class PluginUpdateManager(Star):
             # 构建最终的回复消息
             final_reply_to_user = "\n".join(update_summary_messages)
             if error_msg:
-                final_reply_to_user += f"\n\n注意：部分插件更新失败：[{', '.join(failed_plugins)}]。请检查机器人日志获取详细信息。\n"
+                final_reply_to_user += (
+                    f"\n\n注意：部分插件更新失败：{str(failed_plugins)}。\n"
+                )
                 final_reply_to_user += "\n".join(error_msg)
+            if self.not_found_plugins_names:
+                final_reply_to_user += f"\n\n注意：插件{str(self.not_found_plugins_names)} 名称不一致，未能判断是否需要更新。\n"
             final_reply_to_user += (
                 f"\n成功更新 {len(successed_plugins)} 个插件。\n{successed_plugins}"
             )
@@ -173,14 +179,22 @@ class PluginUpdateManager(Star):
         """
         获取本地插件列表，并与在线版本进行比较，返回需要更新的插件名列表。
         """
+        self.not_found_plugins_data = []
+        self.not_found_plugins_names = []
         local_plugins_list = []
-        for plugin in self.context.get_all_stars():
+        need_examine_list = self.context.get_all_stars()
+        for plugin in need_examine_list:
+            if plugin.name in self.black_plugin_list:
+                continue  # 跳过黑名单插件
+            if self.white_plugin_list and plugin.name not in self.white_plugin_list:
+                continue  # 白名单不为空时，跳过白名单外插件
             local_plugins_list.append(
                 {
                     "name": plugin.name,
                     "version": plugin.version,
-                    # "author": plugin.author,
-                    # "desc": plugin.desc,
+                    "author": plugin.author,
+                    "desc": plugin.desc,
+                    "repo": plugin.repo,
                     "is_updatable": False,
                     "online_version": "",
                 }
@@ -197,7 +211,16 @@ class PluginUpdateManager(Star):
             logger.warning("无法获取在线插件数据，跳过版本比较。")
             return local_plugins_list
         for p in local_plugins_list:
-            online_plugin_data = online_plugins_data.get(p["name"])
+            if p_name := p.get("name"):
+                online_plugin_data = (
+                    online_plugins_data.get(p_name)
+                    or online_plugins_data.get(p_name.lower())
+                    or online_plugins_data.get(p_name.replace("astrbot_plugin_", ""))
+                    or online_plugins_data.get(f"astrbot_plugin_{p_name}")
+                )
+            if not online_plugin_data and p.get("repo"):
+                online_plugin_data = online_plugins_data.get(p["repo"].split("/")[-1])
+
             if online_plugin_data:
                 p["online_version"] = online_plugin_data.get("version", "")
                 try:
@@ -213,7 +236,22 @@ class PluginUpdateManager(Star):
                 except Exception as e:
                     logger.error(f"比较插件 {p['name']} 的版本时出错: {e}")
                     p["is_updatable"] = False  # 发生错误时，保守地认为不可更新
-
+            elif (
+                "astrbot-" in p["name"]
+                or p["name"] == "astrbot"
+                or p["repo"] == "https://astrbot.app"
+            ):
+                continue  # 跳过系统插件
+            else:
+                logger.warning(f"插件 {p['name']} 不在在线插件市场中。")
+                self.not_found_plugins_names.append(p["name"])
+                self.not_found_plugins_data.append(p)
+        if self.test_mode:  # 调试模式
+            with open(
+                Path(__file__).resolve().parent / "test.md", "a", encoding="utf-8"
+            ) as f:
+                f.write(f"最终列表：{local_plugins_list}\n\n")
+                f.write(f"名称不一致的插件信息：{self.not_found_plugins_data}\n\n")
         return [p["name"] for p in local_plugins_list if p["is_updatable"]]
 
     async def terminate(self):

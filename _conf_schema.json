@@ -11,11 +11,25 @@
       "hint": "参考设置中的网址，如 https://gh-proxy.com，不填则不使用",
       "default":""
   },
+  "white_plugin_list": {
+      "description": "白名单插件列表",
+      "type": "list",
+      "hint": "只有列表中的插件会被检查更新，不填则不启用",
+      "default": [],
+      "invisible": false
+  },
+  "black_plugin_list": {
+      "description": "黑名单插件列表",
+      "type": "list",
+      "hint": "列表中的插件不会被检查更新",
+      "default": [],
+      "invisible": false
+  },
   "test_mode": {
       "description": "测试模式",
       "type": "bool",
-      "hint": "true/false",
+      "hint": "在插件目录中的test.md中输出调试数据",
       "default": false,
-      "invisible": true
+      "invisible": false
   }
 }
