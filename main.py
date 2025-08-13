@@ -1,4 +1,5 @@
 import traceback
+import aiohttp
 from pathlib import Path
 from datetime import datetime  # 供调试模式使用
 
@@ -6,28 +7,17 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
+from astrbot.core.utils.version_comparator import VersionComparator
 
 # 导入 APScheduler 库，用于定时任务
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-try:
-    from astrbot.cli.commands.cmd_plug import (
-        build_plug_list,  # 用于获取所有插件信息
-        PluginStatus,
-    )
-
-    logger.info("成功导入 AstrBot 内部插件管理辅助函数和 PluginManager。")
-except ImportError as e:
-    logger.error(f"警告：无法导入 AstrBot 内部依赖模块：{e}")
-    build_plug_list = None
-    PluginStatus = None
 
 
 @register(
     "astrbot_plugin_update_manager",
     "bushikq",
     "一个用于一键更新和管理所有AstrBot插件的工具，支持定时检查",
-    "1.0.2",
+    "2.0.0",
 )
 class PluginUpdateManager(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -72,15 +62,6 @@ class PluginUpdateManager(Star):
         返回一个字符串，包含更新的结果摘要。
         """
         # 检查所有必要的依赖是否成功导入
-        if not all(
-            [
-                build_plug_list,
-                PluginStatus,
-            ]
-        ):
-            error_msg = "机器人内部依赖功能未加载，无法执行更新。"
-            logger.error(f"错误：核心依赖模块未加载，{error_msg}")
-            return error_msg
 
         plug_path = Path(__file__).resolve().parent.parent
         logger.info(f"插件目录：{plug_path}")
@@ -90,37 +71,29 @@ class PluginUpdateManager(Star):
             return error_msg
 
         update_summary_messages = []
+        error_msg = []
         failed_plugins = []
         successed_plugins = []
 
         try:
-            all_plugins_info = build_plug_list(plug_path)
             if self.test_mode:  # 调试模式
                 with open(
                     Path(__file__).resolve().parent / "test.md", "w", encoding="utf-8"
                 ) as f:
-                    f.write(f"于{datetime.now()}记录\n {all_plugins_info}")
+                    f.write(f"于{datetime.now()}记录\n ")
                     logger.info("调试模式：已生成测试文件 test.md。")
-            need_update_plugins = [
-                p
-                for p in all_plugins_info
-                if p.get("status") == PluginStatus.NEED_UPDATE
-            ]
 
-            if not need_update_plugins:
+            # 提取需要更新插件的名称列表，用于日志输出
+            plugin_names_to_update = await self.get_need_update_plugins_list()
+            if not plugin_names_to_update:
                 message = "目前没有发现需要更新的插件。"
                 logger.info(f"{message}")
                 return message
-
-            # 提取需要更新插件的名称列表，用于日志输出
-            plugin_names_to_update = [
-                p.get("name") for p in need_update_plugins if p.get("name")
-            ]
             logger.info(
-                f"发现 {len(need_update_plugins)} 个需要更新的插件：{plugin_names_to_update}。"
+                f"发现 {len(plugin_names_to_update)} 个需要更新的插件：{plugin_names_to_update}。"
             )
             update_summary_messages.append(
-                f"发现 {len(need_update_plugins)} 个插件需要更新。"
+                f"发现 {len(plugin_names_to_update)} 个插件需要更新。"
             )
 
             # 遍历并逐个更新插件
@@ -136,14 +109,15 @@ class PluginUpdateManager(Star):
                     successed_plugins.append(plugin_name_to_update)
 
                 except Exception as e:
-                    error_msg = f"更新插件 {plugin_name_to_update} 失败: {str(e)}"
+                    error_msg.append(f"更新插件 {plugin_name_to_update} 失败: {str(e)}")
                     failed_plugins.append(plugin_name_to_update)
                     logger.error(f"{error_msg}\n{traceback.format_exc()}")
 
             # 构建最终的回复消息
             final_reply_to_user = "\n".join(update_summary_messages)
-            if failed_plugins:
-                final_reply_to_user += f"\n\n注意：部分插件更新失败：{', '.join(failed_plugins)}。请检查机器人日志获取详细信息。"
+            if error_msg:
+                final_reply_to_user += f"\n\n注意：部分插件更新失败：[{', '.join(failed_plugins)}]。请检查机器人日志获取详细信息。\n"
+                final_reply_to_user += "\n".join(error_msg)
             final_reply_to_user += (
                 f"\n成功更新 {len(successed_plugins)} 个插件。\n{successed_plugins}"
             )
@@ -166,6 +140,81 @@ class PluginUpdateManager(Star):
         # 调用核心更新逻辑，并将结果返回给用户
         result_message = await self._check_and_perform_updates()
         yield event.plain_result(result_message)
+
+    async def _fetch_online_plugins(self):
+        """
+        异步从远程 URL 获取在线插件列表。
+        这部分代码基于你在 plugin.py 中提供的逻辑。
+        """
+        urls = [
+            "https://api.soulter.top/astrbot/plugins",
+            "https://github.com/AstrBotDevs/AstrBot_Plugins_Collection/raw/refs/heads/main/plugin_cache_original.json",
+        ]  # 创建列表，防止url出现变动 方便维护
+        remote_data = None
+
+        for url in urls:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as response:
+                        if response.status == 200:
+                            remote_data = await response.json()
+                            if remote_data:
+                                logger.info("成功获取远程插件市场数据")
+                                return remote_data
+                        else:
+                            logger.error(f"请求 {url} 失败，状态码：{response.status}")
+            except Exception as e:
+                logger.error(f"请求 {url} 失败，错误：{e}")
+
+        logger.warning("远程插件市场数据获取失败")
+        return None
+
+    async def get_need_update_plugins_list(self):
+        """
+        获取本地插件列表，并与在线版本进行比较，返回需要更新的插件名列表。
+        """
+        local_plugins_list = []
+        for plugin in self.context.get_all_stars():
+            local_plugins_list.append(
+                {
+                    "name": plugin.name,
+                    "version": plugin.version,
+                    # "author": plugin.author,
+                    # "desc": plugin.desc,
+                    "is_updatable": False,
+                    "online_version": "",
+                }
+            )
+        online_plugins_data = await self._fetch_online_plugins()
+        if self.test_mode:  # 调试模式
+            with open(
+                Path(__file__).resolve().parent / "test.md", "w", encoding="utf-8"
+            ) as f:
+                f.write(f"于{datetime.now()}记录\n\n")
+                f.write(f"本地插件列表：{local_plugins_list}\n\n")
+                f.write(f"在线插件市场数据：{online_plugins_data}\n\n")
+        if not online_plugins_data:
+            logger.warning("无法获取在线插件数据，跳过版本比较。")
+            return local_plugins_list
+        for p in local_plugins_list:
+            online_plugin_data = online_plugins_data.get(p["name"])
+            if online_plugin_data:
+                p["online_version"] = online_plugin_data.get("version", "")
+                try:
+                    if (
+                        VersionComparator.compare_version(
+                            p["version"], p["online_version"]
+                        )
+                        == -1
+                    ):
+                        p["is_updatable"] = True
+                    else:
+                        p["is_updatable"] = False
+                except Exception as e:
+                    logger.error(f"比较插件 {p['name']} 的版本时出错: {e}")
+                    p["is_updatable"] = False  # 发生错误时，保守地认为不可更新
+
+        return [p["name"] for p in local_plugins_list if p["is_updatable"]]
 
     async def terminate(self):
         """
