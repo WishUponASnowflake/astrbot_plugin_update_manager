@@ -139,7 +139,7 @@ class PluginUpdateManager(Star):
 
         # 调用核心更新逻辑，并将结果返回给用户
         result_message = await self._check_and_perform_updates()
-        yield event.plain_result(result_message)
+        yield event.plain_result(result_message).use_t2i(False)
 
     async def _fetch_online_plugins(self):
         """
