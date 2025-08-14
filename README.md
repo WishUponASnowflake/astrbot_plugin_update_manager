@@ -6,6 +6,10 @@
 
 那么，这个插件就是为你准备的！
 
+## 访问统计
+
+## <a href="https://count.getloli.com/"><img src="https://count.getloli.com/get/@:astrbot_plugin_update_manager?theme=rule34"></a>
+
 ## ✨ 主要功能
 
 - **一键更新所有插件**：通过简单的命令即可检查并更新所有需要更新的 AstrBot 插件。
