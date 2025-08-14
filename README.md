@@ -43,6 +43,9 @@
 
 - `interval_hours` (int): 插件定时检查更新的间隔时间（单位：小时，默认为 `24` 小时）。设置为 `0` 则禁用定时更新功能。
 - `github_proxy` (str): 用于插件更新的 github 加速地址（可以参考 astrbot 设置中的选项）。例如: `"https://gh-proxy.com"`。如果您的网络环境需要代理才能访问 GitHub，请配置此项。
+- `black_plugin_list` (list): 可以配置黑名单插件，即不会对其中插件进行更新，以免打断重要插件的运行，或者信息异常的插件反复报错或重复更新。
+- `white_plugin_list` (list): 可以配置白名单插件，即只对其中插件进行检查更新，不填则不启用。
+- `test_mode` (bool): 是否开启调试模式。
 
 ## 🚀 指令说明
 
