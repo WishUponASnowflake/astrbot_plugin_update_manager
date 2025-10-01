@@ -1,9 +1,15 @@
 {
   "interval_hours": { 
       "description": "检查更新间隔,填0则不启用定时检查", 
-      "type": "int",
-      "hint": "整数（小时）", 
+      "type": "float",
+      "hint": "可为浮点数（小时）", 
       "default": 24
+  },
+  "admin_sid_list":{
+      "description": "管理员sid列表",
+      "type": "list",
+      "hint": "字符串,在对应会话发送/sid获得",
+      "default": []
   },
   "github_proxy": {
       "description": "GitHub 加速地址",
@@ -15,15 +21,13 @@
       "description": "白名单插件列表",
       "type": "list",
       "hint": "只有列表中的插件会被检查更新，不填则不启用",
-      "default": [],
-      "invisible": false
+      "default": []
   },
   "black_plugin_list": {
       "description": "黑名单插件列表",
       "type": "list",
       "hint": "列表中的插件不会被检查更新",
-      "default": [],
-      "invisible": false
+      "default": []
   },
   "test_mode": {
       "description": "测试模式",

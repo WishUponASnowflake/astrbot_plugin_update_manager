@@ -3,11 +3,12 @@ import aiohttp
 from pathlib import Path
 from datetime import datetime  # 供调试模式使用
 
-from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.event import filter, AstrMessageEvent, MessageChain
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.utils.version_comparator import VersionComparator
+import astrbot.api.message_components as Comp
 
 # 导入 APScheduler 库，用于定时任务
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -17,7 +18,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
     "astrbot_plugin_update_manager",
     "bushikq",
     "一个用于一键更新和管理所有AstrBot插件的工具，支持定时检查",
-    "2.1.0",
+    "2.2.0",
 )
 class PluginUpdateManager(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -29,6 +30,7 @@ class PluginUpdateManager(Star):
         self.test_mode = self.config.get("test_mode", False)
         self.black_plugin_list = self.config.get("black_plugin_list", [])
         self.white_plugin_list = self.config.get("white_plugin_list", [])
+        self.admin_sid_list = self.config.get("admin_sid_list", [])
 
         if self.proxy_address:
             logger.info(f"使用代理：{self.proxy_address}")
@@ -57,7 +59,17 @@ class PluginUpdateManager(Star):
         这个方法会被 APScheduler 定时调用，用于检查并更新所有插件。
         """
         logger.info("定时任务：正在检查并更新所有插件...")
-        await self._check_and_perform_updates()  # 不需要返回给用户，只记录日志
+        final_message = await self._check_and_perform_updates()
+        msg_components = [(Comp.Plain(text=final_message))]
+        if self.admin_sid_list:  # 如果有管理员sid，则发送消息给管理员
+            for admin in self.admin_sid_list:
+                try:
+                    await self.context.send_message(
+                        admin,
+                        MessageChain(msg_components),
+                    )
+                except Exception as e:
+                    logger.error(f"定时任务：发送给管理员{admin}消息失败：{e}")
 
     async def _check_and_perform_updates(self) -> str:
         """
